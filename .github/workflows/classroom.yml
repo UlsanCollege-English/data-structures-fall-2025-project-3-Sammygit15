@@ -17,6 +17,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
         run: pip install --upgrade pip pytest
 
@@ -30,6 +35,6 @@ jobs:
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         env:
-          TESTS_RESULTS: ${{ steps.grader.outputs.result }}
+          TESTS_RESULTS: ${{ steps.grader.outputs.tests }}
         with:
           runners: grader
