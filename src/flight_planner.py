@@ -24,6 +24,8 @@ class Flight:
 
     Times are stored as minutes since midnight (0–1439).
     """
+
+    # TODO: verify you understand these fields and update docstrings as needed.
     origin: str
     dest: str
     flight_number: str
@@ -34,7 +36,12 @@ class Flight:
     first: int
 
     def price_for(self, cabin: Cabin) -> int:
-        """Return the price for this flight in the given cabin."""
+        """
+        Return the price for this flight in the given cabin.
+
+        Hint:
+        - Map cabin names to the numeric fields defined above.
+        """
         if cabin == "economy":
             return self.economy
         if cabin == "business":
@@ -53,6 +60,7 @@ class Itinerary:
     - flights are in chronological order.
     - the destination of each flight matches the origin of the next.
     """
+
     flights: List[Flight]
 
     def is_empty(self) -> bool:
@@ -60,24 +68,38 @@ class Itinerary:
 
     @property
     def origin(self) -> Optional[str]:
+        # TODO: return the origin airport code of the first flight, or None.
         return None if not self.flights else self.flights[0].origin
 
     @property
     def dest(self) -> Optional[str]:
+        # TODO: return the destination airport code of the last flight, or None.
         return None if not self.flights else self.flights[-1].dest
 
     @property
     def depart_time(self) -> Optional[int]:
+        # TODO: return the departure time (minutes) of the first flight, or None.
         return None if not self.flights else self.flights[0].depart
 
     @property
     def arrive_time(self) -> Optional[int]:
+        # TODO: return the arrival time (minutes) of the last flight, or None.
         return None if not self.flights else self.flights[-1].arrive
 
     def total_price(self, cabin: Cabin) -> int:
+        """
+        Sum the price of all flights in this itinerary for the given cabin.
+        """
         return sum(f.price_for(cabin) for f in self.flights)
 
     def num_stops(self) -> int:
+        """
+        Number of stops = flights - 1.
+
+        Example:
+        - 1 flight: 0 stops (direct).
+        - 3 flights: 2 stops.
+        """
         return max(0, len(self.flights) - 1)
 
 
@@ -92,6 +114,11 @@ Graph = Dict[str, List[Flight]]
 def parse_time(hhmm: str) -> int:
     """
     Parse a time string 'HH:MM' (24-hour) into minutes since midnight.
+
+    Examples:
+        '00:00' -> 0
+        '08:30' -> 510
+        '23:59' -> 23*60 + 59
     """
     if not isinstance(hhmm, str):
         raise ValueError("time must be a string in HH:MM format")
@@ -132,6 +159,13 @@ def parse_flight_line_txt(line: str) -> Optional[Flight]:
 
     Format:
         ORIGIN DEST FLIGHT_NUMBER DEPART ARRIVE ECONOMY BUSINESS FIRST
+
+    Behavior:
+    - Return a Flight if the line contains data.
+    - Return None for:
+        * blank lines
+        * comment lines starting with '#'
+    - Raise ValueError for malformed data lines.
     """
     s = line.strip()
     if not s or s.startswith("#"):
@@ -147,19 +181,13 @@ def parse_flight_line_txt(line: str) -> Optional[Flight]:
     first = int(first_s)
     if arrive <= depart:
         raise ValueError(f"arrival must be after depart (same-day): {line!r}")
-    return Flight(
-        origin=origin,
-        dest=dest,
-        flight_number=flight_number,
-        depart=depart,
-        arrive=arrive,
-        economy=econ,
-        business=bus,
-        first=first,
-    )
+    return Flight(origin=origin, dest=dest, flight_number=flight_number, depart=depart, arrive=arrive, economy=econ, business=bus, first=first)
 
 
 def load_flights_txt(path: str) -> List[Flight]:
+    """
+    Load flights from a plain text schedule file.
+    """
     flights: List[Flight] = []
     p = Path(path)
     with p.open("r", encoding="utf-8") as fh:
@@ -174,6 +202,11 @@ def load_flights_txt(path: str) -> List[Flight]:
 
 
 def load_flights_csv(path: str) -> List[Flight]:
+    """
+    Load flights from a CSV file with header:
+
+        origin,dest,flight_number,depart,arrive,economy,business,first
+    """
     flights: List[Flight] = []
     p = Path(path)
     with p.open("r", encoding="utf-8") as fh:
@@ -196,22 +229,14 @@ def load_flights_csv(path: str) -> List[Flight]:
                 raise ValueError(f"{path}:{lineno}: invalid CSV row: {e}")
             if arrive <= depart:
                 raise ValueError(f"{path}:{lineno}: arrival must be after depart (same-day)")
-            flights.append(
-                Flight(
-                    origin=origin,
-                    dest=dest,
-                    flight_number=flight_number,
-                    depart=depart,
-                    arrive=arrive,
-                    economy=econ,
-                    business=bus,
-                    first=first,
-                )
-            )
+            flights.append(Flight(origin=origin, dest=dest, flight_number=flight_number, depart=depart, arrive=arrive, economy=econ, business=bus, first=first))
     return flights
 
 
 def load_flights(path: str) -> List[Flight]:
+    """
+    Wrapper that chooses TXT or CSV loader based on file extension.
+    """
     suf = Path(path).suffix.lower()
     if suf == ".csv":
         return load_flights_csv(path)
@@ -226,14 +251,14 @@ def load_flights(path: str) -> List[Flight]:
 def build_graph(flights: Iterable[Flight]) -> Graph:
     """
     Build an adjacency-list graph from a collection of flights.
-
-    Keys are origins only (airports with outgoing flights).
     """
     g: Graph = {}
     for f in flights:
         g.setdefault(f.origin, []).append(f)
-    # sort outgoing flights by departure time for small efficiency gain
-    for origin in g:
+        # ensure destination node appears (optional) so airport presence checks work
+        g.setdefault(f.dest, g.get(f.dest, []))
+    # Optionally sort outgoing flights by departure time for slight efficiency
+    for origin in list(g.keys()):
         g[origin].sort(key=lambda fl: fl.depart)
     return g
 
@@ -243,18 +268,6 @@ def build_graph(flights: Iterable[Flight]) -> Graph:
 # ---------------------------------------------------------------------------
 
 
-def _collect_airports_from_graph(graph: Graph) -> set:
-    """
-    Return set of all airports that appear either as origin (graph keys)
-    or as destinations in any outgoing flight list.
-    """
-    airports = set(graph.keys())
-    for out_list in graph.values():
-        for fl in out_list:
-            airports.add(fl.dest)
-    return airports
-
-
 def find_earliest_itinerary(
     graph: Graph,
     start: str,
@@ -262,25 +275,21 @@ def find_earliest_itinerary(
     earliest_departure: int,
 ) -> Optional[Itinerary]:
     """
-    Find itinerary that arrives as early as possible (Dijkstra-like over arrival time).
+    Dijkstra-like search where distance = earliest arrival time at an airport.
     """
     import math
 
-    # start must be an origin with outgoing flights (otherwise no outbound flights available)
-    if start not in graph:
+    if start not in graph or dest not in graph:
+        # If either airport is unknown in the graph, no route exists
         return None
 
-    # But dest may not be a key; still consider it valid if it appears somewhere
-    airports = _collect_airports_from_graph(graph)
-    if dest not in airports:
-        return None
-
-    # Initialize dist/prev for all airports
-    dist: Dict[str, float] = {a: math.inf for a in airports}
-    prev: Dict[str, Optional[Flight]] = {a: None for a in airports}
+    # dist[airport] = earliest time we can be at airport
+    dist: Dict[str, int] = {node: math.inf for node in graph}
+    prev: Dict[str, Optional[Flight]] = {node: None for node in graph}
 
     dist[start] = earliest_departure
-    heap: List[Tuple[float, str]] = [(earliest_departure, start)]
+    # priority queue of (time, airport)
+    heap: List[Tuple[int, str]] = [(earliest_departure, start)]
 
     while heap:
         time_at_u, u = heapq.heappop(heap)
@@ -288,12 +297,11 @@ def find_earliest_itinerary(
             continue
         if u == dest:
             break
-        # allowed earliest departure from u
+        # compute minimum allowable departure time from u
         if u == start:
             min_dep = time_at_u
         else:
             min_dep = time_at_u + MIN_LAYOVER_MINUTES
-
         for f in graph.get(u, []):
             if f.depart < min_dep:
                 continue
@@ -307,7 +315,7 @@ def find_earliest_itinerary(
     if dist[dest] == float("inf"):
         return None
 
-    # reconstruct itinerary
+    # Reconstruct itinerary: follow prev from dest back to start
     flights_rev: List[Flight] = []
     cur = dest
     while prev[cur] is not None:
@@ -326,30 +334,27 @@ def find_cheapest_itinerary(
     cabin: Cabin,
 ) -> Optional[Itinerary]:
     """
-    Find cheapest itinerary (Dijkstra-like on cumulative cost, with time constraints).
-    States are (airport, arrival_time).
-    """
-    # start must have outgoing flights
-    if start not in graph:
-        return None
+    Dijkstra over (airport, arrival_time) states keyed by total cost.
 
-    airports = _collect_airports_from_graph(graph)
-    if dest not in airports:
+    We maintain dominance lists per airport to prune dominated states:
+    A state (t_arrive, cost) is dominated if there exists another state with
+    arrive_time <= t_arrive and cost <= cost.
+    """
+    if start not in graph or dest not in graph:
         return None
 
     # Priority queue: (cost_so_far, airport, arrival_time)
     heap: List[Tuple[int, str, int]] = [(0, start, earliest_departure)]
 
-    # prev maps state (airport, arrival_time) -> (previous_state, flight_used)
+    # For reconstructing path: key a state by (airport, arrival_time)
     prev: Dict[Tuple[str, int], Tuple[Optional[Tuple[str, int]], Flight]] = {}
 
     # For each airport keep a list of non-dominated (arrival_time, cost) pairs
-    non_dominated: Dict[str, List[Tuple[int, int]]] = {a: [] for a in airports}
+    non_dominated: Dict[str, List[Tuple[int, int]]] = {node: [] for node in graph}
 
     while heap:
         cost, u, arrival_time = heapq.heappop(heap)
-
-        # dominance check
+        # Check if this state is dominated by an already-seen better one
         dominated = False
         for (t_exist, c_exist) in non_dominated[u]:
             if t_exist <= arrival_time and c_exist <= cost:
@@ -358,16 +363,19 @@ def find_cheapest_itinerary(
         if dominated:
             continue
 
-        # insert this state, removing any it dominates
-        nd_list: List[Tuple[int, int]] = []
+        # Add this state to non_dominated and remove any it dominates
+        new_list: List[Tuple[int, int]] = []
         for (t_exist, c_exist) in non_dominated[u]:
+            # keep existing if it's not dominated by new state
             if not (arrival_time <= t_exist and cost <= c_exist):
-                nd_list.append((t_exist, c_exist))
-        nd_list.append((arrival_time, cost))
-        non_dominated[u] = nd_list
+                new_list.append((t_exist, c_exist))
+        new_list.append((arrival_time, cost))
+        non_dominated[u] = new_list
 
+        # If we reached destination, this is the least-cost arrival because
+        # heap pops states by increasing cost
         if u == dest:
-            # reconstruct best path for this arrival_time
+            # reconstruct path using prev: the state key is (u, arrival_time)
             flights_rev: List[Flight] = []
             cur_state = (u, arrival_time)
             while cur_state in prev:
@@ -379,7 +387,7 @@ def find_cheapest_itinerary(
             flights = list(reversed(flights_rev))
             return Itinerary(flights=flights) if flights else None
 
-        # min allowed departure from u
+        # compute minimum allowable departure time from u
         if u == start:
             min_dep = arrival_time
         else:
@@ -391,7 +399,9 @@ def find_cheapest_itinerary(
             v = f.dest
             new_cost = cost + f.price_for(cabin)
             new_arrival = f.arrive
-            # dominance quick-check on v
+            # state is (v, new_arrival)
+            state = (v, new_arrival)
+            # quick dominance check against non_dominated[v]
             skip = False
             for (t_exist, c_exist) in non_dominated[v]:
                 if t_exist <= new_arrival and c_exist <= new_cost:
@@ -399,7 +409,7 @@ def find_cheapest_itinerary(
                     break
             if skip:
                 continue
-            state = (v, new_arrival)
+            # record predecessor
             prev[state] = ((u, arrival_time), f)
             heapq.heappush(heap, (new_cost, v, new_arrival))
 
@@ -414,9 +424,9 @@ def find_cheapest_itinerary(
 @dataclass
 class ComparisonRow:
     mode: str
-    cabin: Optional[Cabin]
+    cabin: Optional[Cabin]  # e.g. None for earliest-arrival if you want
     itinerary: Optional[Itinerary]
-    note: str = ""
+    note: str = ""  # e.g. "(no valid itinerary)"
 
 
 def _format_duration(minutes: int) -> str:
@@ -431,14 +441,27 @@ def format_comparison_table(
     earliest_departure: int,
     rows: List[ComparisonRow],
 ) -> str:
+    """
+    Format a text table comparing several itineraries.
+    """
     header = f"Comparison for {origin} → {dest} (earliest departure {format_time(earliest_departure)}, layover ≥ {MIN_LAYOVER_MINUTES} min)"
-    cols = ["Mode", "Cabin", "Dep", "Arr", "Duration", "Stops", "Total Price", "Note"]
+    cols = [
+        "Mode",
+        "Cabin",
+        "Dep",
+        "Arr",
+        "Duration",
+        "Stops",
+        "Total Price",
+        "Note",
+    ]
+    # column widths
     widths = [22, 8, 6, 6, 10, 6, 11, 20]
-
     def pad(s: str, w: int) -> str:
         return s + " " * (w - len(s)) if len(s) < w else s[:w]
 
     lines: List[str] = [header, ""]
+    # header row
     hrow = "  ".join(pad(c, w) for c, w in zip(cols, widths))
     sep = "  ".join("-" * w for w in widths)
     lines.append(hrow)
@@ -454,11 +477,7 @@ def format_comparison_table(
             arr_min = it.arrive_time
             dep = format_time(dep_min) if dep_min is not None else "N/A"
             arr = format_time(arr_min) if arr_min is not None else "N/A"
-            duration = (
-                _format_duration(arr_min - dep_min)
-                if (dep_min is not None and arr_min is not None)
-                else "N/A"
-            )
+            duration = _format_duration(arr_min - dep_min) if (dep_min is not None and arr_min is not None) else "N/A"
             stops = str(it.num_stops())
             price = str(it.total_price(r.cabin)) if r.cabin is not None else "N/A"
             note = r.note
@@ -476,6 +495,9 @@ def format_comparison_table(
 
 
 def run_compare(args: argparse.Namespace) -> None:
+    """
+    Handle the 'compare' subcommand.
+    """
     try:
         earliest_departure = parse_time(args.departure_time)
     except ValueError as e:
@@ -490,8 +512,8 @@ def run_compare(args: argparse.Namespace) -> None:
 
     graph = build_graph(flights)
 
-    # Recognize airports appearing either as origin or destination
-    airports = {f.origin for f in flights} | {f.dest for f in flights}
+    # verify airports exist somewhere in the data (either as origin or dest)
+    airports = set(graph.keys())
     if args.origin not in airports:
         print(f"Unknown origin airport: {args.origin}")
         return
@@ -501,16 +523,9 @@ def run_compare(args: argparse.Namespace) -> None:
 
     rows: List[ComparisonRow] = []
 
-    # Earliest arrival (display economy in cabin column for readability)
+    # Earliest arrival (no cabin preference). We'll display Economy in cabin col for readability.
     ea = find_earliest_itinerary(graph, args.origin, args.dest, earliest_departure)
-    rows.append(
-        ComparisonRow(
-            mode="Earliest arrival",
-            cabin="economy",
-            itinerary=ea,
-            note="" if ea else "(no valid itinerary)",
-        )
-    )
+    rows.append(ComparisonRow(mode="Earliest arrival", cabin="economy", itinerary=ea, note="" if ea else "(no valid itinerary)"))
 
     # Cheapest per cabin
     for cabin in ("economy", "business", "first"):
@@ -523,20 +538,48 @@ def run_compare(args: argparse.Namespace) -> None:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="FlyWise — Flight Route & Fare Comparator (Project 3).")
+    """
+    Build the top-level argument parser with a 'compare' subcommand.
+
+    You generally do NOT need to change this unless you add features.
+    """
+    parser = argparse.ArgumentParser(
+        description="FlyWise — Flight Route & Fare Comparator (Project 3)."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    compare_parser = subparsers.add_parser("compare", help="Compare itineraries for a route (earliest arrival, cheapest per cabin).")
-    compare_parser.add_argument("flight_file", help="Path to the flight schedule file (.txt or .csv).")
-    compare_parser.add_argument("origin", help="Origin airport code (e.g., ICN).")
-    compare_parser.add_argument("dest", help="Destination airport code (e.g., SFO).")
-    compare_parser.add_argument("departure_time", help="Earliest allowed departure time (HH:MM, 24-hour).")
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare itineraries for a route (earliest arrival, cheapest per cabin).",
+    )
+    compare_parser.add_argument(
+        "flight_file",
+        help="Path to the flight schedule file (.txt or .csv).",
+    )
+    compare_parser.add_argument(
+        "origin",
+        help="Origin airport code (e.g., ICN).",
+    )
+    compare_parser.add_argument(
+        "dest",
+        help="Destination airport code (e.g., SFO).",
+    )
+    compare_parser.add_argument(
+        "departure_time",
+        help="Earliest allowed departure time (HH:MM, 24-hour).",
+    )
     compare_parser.set_defaults(func=run_compare)
 
     return parser
 
 
 def main(argv: Optional[List[str]] = None) -> None:
+    """
+    Entry point for the CLI.
+
+    Example usage:
+        python flight_planner.py compare flights_global.txt ICN SFO 08:00
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     args.func(args)
@@ -544,3 +587,4 @@ def main(argv: Optional[List[str]] = None) -> None:
 
 if __name__ == "__main__":
     main()
+
