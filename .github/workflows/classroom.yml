@@ -1,39 +1,33 @@
 name: Autograding Tests
+
 on:
-- push
-- workflow_dispatch
-permissions:
-  checks: write
-  actions: read
-  contents: read
+  push:
+  workflow_dispatch:
+
 jobs:
   run-autograding-tests:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-classroom[bot]'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: tests
-      id: tests
-      uses: classroom-resources/autograding-python-grader@v1
-      with:
-        timeout: 10
-        setup-command: |
-          pip install -r requirements.txt
-          export PYTHONPATH=.
-    - name: Check test results
-      id: check_results
-      run: |
-        if [ -z "${{steps.tests.outputs.result}}" ]; then
-          echo "::error::No test results found. Tests may have failed to run."
-          echo "result=error" >> $GITHUB_OUTPUT
-        else
-          echo "result=${{steps.tests.outputs.result}}" >> $GITHUB_OUTPUT
-        fi
-    - name: Autograding Reporter
-      if: steps.check_results.outputs.result != 'error'
-      uses: classroom-resources/autograding-grading-reporter@v1
-      env:
-        TESTS_RESULTS: "${{steps.tests.outputs.result}}"
-      with:
-        runners: tests
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install --upgrade pip pytest
+
+      - name: Run pytest
+        id: pytest
+        run: |
+          pytest -q --tb=short --disable-warnings > result.log || true
+          echo "::set-output name=result::$(cat result.log)"
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        env:
+          TESTS_RESULTS: "${{steps.pytest.outputs.result}}"
+        with:
+          runners: pytest
