@@ -1,46 +1,37 @@
-name: Autograding & Pytest
+name: Autograding Tests
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  run-tests:
+  run-autograding-tests:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout the repository code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Set up Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # 3. Set PYTHONPATH so that imports from project root work
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
-      # 4. Install dependencies (pip, pytest)
       - name: Install dependencies
         run: pip install --upgrade pip pytest
 
-      # 5. Run pytest for visible logs in GitHub Actions
       - name: Run pytest
         run: python -m pytest -q --tb=short
 
-      # 6. Run the Classroom autograding grader
-      #    This step ensures the dashboard receives test results
-      - name: Autograding tests
+      - name: Run autograding tests
         id: tests
         uses: classroom-resources/autograding-python-grader@v1
         with:
           timeout: 10
           setup-command: 'pip install --upgrade pip pytest'
 
-      # 7. Report the autograding results to the Classroom dashboard
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         env:

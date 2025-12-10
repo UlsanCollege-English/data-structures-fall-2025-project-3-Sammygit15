@@ -1,20 +1,26 @@
-name: Autograding Tests
+name: Run Pytest
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
-  tests:
+  pytest-run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set Python
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
-      - name: Install pytest
+
+      - name: Install dependencies
         run: pip install --upgrade pip pytest
+
       - name: Run pytest
-        run: python -m pytest -q
+        run: python -m pytest -q --tb=short
