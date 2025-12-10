@@ -1,27 +1,31 @@
 name: Autograding Tests
-'on':
-- push
-- workflow_dispatch
-permissions:
-  checks: write
-  actions: read
-  contents: read
+
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   run-autograding-tests:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-classroom[bot]'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: tests
-      id: tests
-      uses: classroom-resources/autograding-python-grader@v1
-      with:
-        timeout: 10
-        setup-command: ''
-    - name: Autograding Reporter
-      uses: classroom-resources/autograding-grading-reporter@v1
-      env:
-        TESTS_RESULTS: "${{steps.tests.outputs.result}}"
-      with:
-        runners: tests
+      # Step 1 — Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2 — Set Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # Step 3 — Set PYTHONPATH so tests can find flight_planner.py
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+
+      # Step 4 — Install dependencies (pytest)
+      - name: Install dependencies
+        run: pip install --upgrade pip pytest
+
+      # Step 5 — Run pytest
+      - name: Run pytest
+        run: python -m pytest -q
