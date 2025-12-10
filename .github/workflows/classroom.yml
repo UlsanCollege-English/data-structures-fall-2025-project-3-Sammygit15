@@ -22,11 +22,8 @@ jobs:
       - name: Install dependencies
         run: pip install --upgrade pip pytest
 
-      - name: Run pytest
-        run: python -m pytest -q --tb=short
-
       - name: Run autograding tests
-        id: tests
+        id: grader
         uses: classroom-resources/autograding-python-grader@v1
         with:
           timeout: 10
@@ -35,6 +32,6 @@ jobs:
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         env:
-          TESTS_RESULTS: "${{steps.tests.outputs.result}}"
+          TESTS_RESULTS: "${{steps.grader.outputs.result}}"
         with:
-          runners: tests
+          runners: grader
